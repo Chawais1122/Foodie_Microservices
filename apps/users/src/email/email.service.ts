@@ -1,12 +1,16 @@
 import { MailerService } from '@nestjs-modules/mailer';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { User } from '../entities';
-
+interface UserData {
+  name: string;
+  email: string;
+  phone_number: number;
+  password: string;
+}
 @Injectable()
 export class EmailService {
   constructor(private mailerService: MailerService) {}
 
-  async sendEmail(user: User, subject: string, otp: number) {
+  async sendEmail(user: UserData, subject: string, otp: string) {
     try {
       await this.mailerService.sendMail({
         to: user.email,

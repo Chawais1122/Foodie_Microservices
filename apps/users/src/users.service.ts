@@ -1,24 +1,25 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import { LoginDto, SignUpDto } from './dto';
+import { JwtService, JwtVerifyOptions, TokenExpiredError } from '@nestjs/jwt';
+import { ActivateUserDto, LoginDto, SignUpDto } from './dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ERROR_MESSAGES } from './common/constants/error-messages';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
-import { Role } from '@prisma/client';
 import { EmailService } from './email/email.service';
+import { TokenSender } from './common/utils/tokenSender';
 
 interface UserData {
-  id: string;
   name: string;
   email: string;
   phone_number: number;
-  role: Role;
+  password: string;
 }
 
 @Injectable()
@@ -34,13 +35,13 @@ export class UsersService {
     try {
       const { email, password, name, phone_number } = signUpDto;
 
-      const user = await this.prisma.user.findUnique({
+      const existUser = await this.prisma.user.findUnique({
         where: {
           email: email,
         },
       });
 
-      if (user) {
+      if (existUser) {
         throw new ConflictException(ERROR_MESSAGES.USER_ALREADY_EXIST);
       }
 
@@ -49,27 +50,17 @@ export class UsersService {
         parseInt(this.configService.get('SALT_ROUNDS')),
       );
 
-      const createdUser = await this.prisma.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          name,
-          phone_number,
-        },
-      });
-
-      const data = {
-        id: createdUser.id,
+      const user = {
         name,
         email,
         phone_number,
-        role: createdUser.role,
+        password: hashedPassword,
       };
 
-      const { token, activationCode } = await this.signToken(data);
+      const { token, activationCode } = await this.signToken(user);
 
       await this.emailService.sendEmail(
-        createdUser,
+        user,
         'Confirmation Email',
         activationCode,
       );
@@ -86,15 +77,111 @@ export class UsersService {
     }
   }
 
-  async login(loginDto: LoginDto) {
-    return loginDto;
+  async activateUser(activationUser: ActivateUserDto, response: Response) {
+    try {
+      const { activationToken, activationCode } = activationUser;
+
+      const newUser: { user: UserData; activationCode: string } =
+        this.jwtService.verify(activationToken, {
+          secret: this.configService.get<string>('JWT_ACTIVATION_TOKEN_SECRET'),
+        } as JwtVerifyOptions) as { user: UserData; activationCode: string };
+
+      if (newUser.activationCode !== activationCode) {
+        throw new BadRequestException(ERROR_MESSAGES.INVALID_ACTIVATION_CODE);
+      }
+
+      const { name, email, password, phone_number } = newUser.user;
+
+      const existUser = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (existUser) {
+        throw new ConflictException(ERROR_MESSAGES.USER_ALREADY_EXIST);
+      }
+
+      const user = await this.prisma.user.create({
+        data: {
+          name,
+          email,
+          password,
+          phone_number,
+        },
+      });
+
+      return { user, response };
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException(ERROR_MESSAGES.TOKEN_EXPIRED);
+      }
+      throw error;
+    }
   }
 
-  async signToken(payload: UserData) {
-    const activationCode = Math.floor(100000 + Math.random() * 900000);
-    const token = await this.jwtService.sign(payload);
+  async login(loginDto: LoginDto) {
+    try {
+      const { email, password } = loginDto;
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (user && (await this.comparePassword(password, user.password))) {
+        const tokenSender = new TokenSender(
+          this.configService,
+          this.jwtService,
+        );
+        return tokenSender.sendToken(user);
+      } else {
+        throw new ForbiddenException(ERROR_MESSAGES.INVALID_CREDENTIALS);
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async comparePassword(
+    password: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
+    return await bcrypt.compare(password, hashedPassword);
+  }
+
+  async signToken(user: UserData) {
+    const activationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+
+    const token = await this.jwtService.sign(
+      {
+        user,
+        activationCode,
+      },
+      {
+        secret: this.configService.get<string>('JWT_ACTIVATION_TOKEN_SECRET'),
+        expiresIn: this.configService.get('JWT_ACTIVATION_TOKEN_EXPIRE_IN'),
+      },
+    );
 
     return { token, activationCode };
+  }
+
+  async Logout(req: any) {
+    req.user = null;
+    req.refreshtoken = null;
+    req.accesstoken = null;
+    return { message: ERROR_MESSAGES.LOGOUT };
+  }
+
+  async getLoggedInUser(req: any) {
+    const user = req.user;
+    const refreshToken = req.refreshtoken;
+    const accessToken = req.accesstoken;
+    return { user, refreshToken, accessToken };
   }
 
   async findAll() {

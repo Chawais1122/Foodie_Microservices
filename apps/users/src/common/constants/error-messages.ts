@@ -6,4 +6,9 @@ export const ERROR_MESSAGES = {
     'Password should contain at least 8 characters with 1 special character and 1 number',
   USER_ALREADY_EXIST: 'User already exist!',
   MUST_NUMBER: 'must be a number',
+  INVALID_ACTIVATION_CODE: 'Invalid activation code',
+  INVALID_CREDENTIALS: 'Invalid credentials',
+  TOKEN_EXPIRED: 'Token expired',
+  ACCESS_DENIED: 'Access denied. Please log in to continue.',
+  LOGOUT: 'Logged out successfully!',
 };

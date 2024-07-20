@@ -9,6 +9,7 @@ export class LoginDto {
   @IsNotEmpty({ message: `Email ${ERROR_MESSAGES.NOT_EMPTY}` })
   email: string;
 
+  @Field()
   @IsNotEmpty({ message: `Password ${ERROR_MESSAGES.NOT_EMPTY}` })
   @IsString({ message: `Password ${ERROR_MESSAGES.MUST_STRING}` })
   @Matches(
