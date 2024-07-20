@@ -25,7 +25,14 @@
       "entryFile": "main",
       "sourceRoot": "apps/users/src",
       "compilerOptions": {
-        "tsConfigPath": "apps/users/tsconfig.app.json"
+        "tsConfigPath": "apps/users/tsconfig.app.json",
+        "assets": [
+          {
+            "include": "apps/users/src/email/templates/**/*",
+            "outDir": "dist/apps/users/src/email/email/templates"
+          }
+        ],
+        "watchAssets": true
       }
     }
   }

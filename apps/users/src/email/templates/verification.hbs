@@ -1,0 +1,27 @@
+<html>
+  <head>
+    <style>
+      body { font-family: sans-serif; margin: 0; padding: 0; background-color:
+      #f5f5f5; } table { border-collapse: collapse; width: 100%; max-width:
+      600px; margin: 20px auto; } td { padding: 20px; text-align: center; } h2 {
+      font-size: 24px; margin: 0; color: #333; } p { font-size: 16px;
+      line-height: 1.5; margin-bottom: 10px; } .small { font-size: 14px; color:
+      #888; } .otp { font-size: 32px; padding: 5px; font-weight: bold; color:
+      #3879f0; margin: 10px 0; } #countdown { font-size: 18px; font-weight:
+      bold; color: #f0545e; /* Adjust color for urgency */ margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <tr>
+        <td>
+          <p>Hey {{name}},</p>
+          <p>Here is your One Time Password </p>
+          <p class='small'>For {{subject}}</p>
+          <h2 class='otp'>{{otp}}</h2>
+          <p id='countdown'>Valid for 15 minutes only</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
